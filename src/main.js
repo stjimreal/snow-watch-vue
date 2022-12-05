@@ -1,3 +1,8 @@
+/*
+ * @Date: 2022-04-18 00:52:06
+ * @LastEditors: LIULIJING
+ * @LastEditTime: 2022-04-21 10:21:49
+ */
 import {createApp} from 'vue'
 // import { ElMenu, ElImage } from 'element-plus';
 import ElementPlus from 'element-plus';
@@ -12,13 +17,13 @@ import 'leaflet/dist/leaflet.css'
 import '@/assets/main.css'
 import '@/m/matomo'
 
-import router from "./router";
+// import router from "./router";
 
 Axios.defaults.baseURL = '/covid-19-dashboard'
 Axios.defaults.headers.get['Content-Type'] = 'application/json'
 
 const app = createApp(App);
-app.use(router);
+// app.use(router);
 app.use(ElementPlus);
 app.use(VueAxios, Axios);
 app.mount('#app')

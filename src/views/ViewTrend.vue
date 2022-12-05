@@ -4,9 +4,10 @@
         ChartShowTime
       }}</span>
     <el-slider id="timeSlider" v-model=timeStamp2 :max=worldData.series.length-1
-               :show-tooltip="false"
+               :show-tooltip="true"
                :step="1"
-               @change="changeTimeSlider"></el-slider>
+               @change="changeTimeSlider"
+               :show-stops="true"></el-slider>
   </div>
   <div id="sortChart" style="width: 100%;height:800px;"></div>
   <div id="miniCHarts" style="width: 100%;height:13000px;"></div>
