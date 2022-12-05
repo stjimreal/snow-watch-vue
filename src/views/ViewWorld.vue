@@ -1,24 +1,5 @@
 <template>
-  <!-- <AppHeaderCard
-      :title="'确诊： ' + glanceData.cases"
-      type="warning"
-  ></AppHeaderCard>
-  <AppHeaderCard
-      :title="'康复： ' + glanceData.recovered"
-      type="success"
-  ></AppHeaderCard>
-  <AppHeaderCard
-      :title="'死亡： ' + glanceData.deaths"
-      type="info"
-  ></AppHeaderCard> -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.min.css" />
-    <!-- <span >地图颜色表： </span>
-    <el-radio-group v-model="colorMap" @change="changeColorMap">
-      <el-radio style="width: 100px" v-for="(c, i) in theColorMap"
-                :label="i" :key="i" >
-        <AppColorGrad :color-map="c"></AppColorGrad>
-      </el-radio>
-    </el-radio-group> -->
   <div id="map"></div>
 </template>
 
@@ -31,33 +12,14 @@ import 'element-plus/lib/theme-chalk/el-radio-group.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import L from "leaflet";
 import "@/m/fixleaflet";
+// import echarts from "./ViewTrend.vue";
 import "leaflet.chinatmsproviders";
 import "leaflet-draw";
 import "leaflet-geodesy";
 import "mytests-leaflet-timedimension-lljss";
-import echarts from "echarts";
-
-const theColorMap = [
-  'Spectral',
-  ['yellow', '008ae5'],
-  ['yellow', 'red', 'black'],
-  ['yellow', 'navy'],
-  'YlGn',
-  'RdYlBu'
-];
-const ratio2ColorMap = [
-  [0.00, 0.00],
-  [0.01, 0.10],
-  [0.03, 0.20],
-  [0.05, 0.30],
-  [0.08, 0.40],
-  [0.12, 0.50],
-  [0.18, 0.60],
-  [0.25, 0.70],
-  [0.50, 0.80],
-  [0.70, 0.90],
-  [0.80, 1.00],
-];
+import axios, {CancelToken} from "axios";
+const echarts = require('echarts');
+var geodesy = require('leaflet-geodesy');
 
 export default {
   name: "ViewWorld",
@@ -67,6 +29,8 @@ export default {
       baseLayers: null,
       globalVaccineLayer: null,
       globalCovidLayer: null,
+      cancelAxiosRequest: null,
+      chinaCityLayer: null
     };
   },
   components: {
@@ -103,10 +67,6 @@ export default {
         "高德卫星影像": Gaodimgem,
         "高德卫星标注": Gaodimga
       };
-      // this.timeDimension = new L.TimeDimension({
-      //   timeInterval: "2017-01-01/2021-10-30",
-      //   period: "P1DT"
-      // });
 
       this.map = L.map("map", {
         center: [40, 80],
@@ -146,40 +106,6 @@ export default {
       this.controlLayers.addOverlay(this.globalVaccineLayer, '全球国家线');
     },
 
-    vaccineStyle(feature) {
-      let id = feature.properties.id;
-      let d = 0;
-      let index = this.vaccineCountryName.findIndex(
-          (c) => c ===
-              this.jhuCountryInfo.name[
-                  this.jhuCountryInfo.id.findIndex((e) => e === id)
-                  ]);
-      if (index >= 0) {
-        d = Object.values(this.vaccineData[index].timeline)
-            / feature.properties.population;
-      }
-      let fColor = d <= ratio2ColorMap[0][0] ? this.color_scale(ratio2ColorMap[0][1])
-          : d <= ratio2ColorMap[1][0] ? this.color_scale(ratio2ColorMap[1][1])
-          : d <= ratio2ColorMap[2][0] ? this.color_scale(ratio2ColorMap[2][1])
-          : d <= ratio2ColorMap[3][0] ? this.color_scale(ratio2ColorMap[3][1])
-          : d <= ratio2ColorMap[4][0] ? this.color_scale(ratio2ColorMap[4][1])
-          : d <= ratio2ColorMap[5][0] ? this.color_scale(ratio2ColorMap[5][1])
-          : d <= ratio2ColorMap[6][0] ? this.color_scale(ratio2ColorMap[6][1])
-          : d <= ratio2ColorMap[7][0] ? this.color_scale(ratio2ColorMap[7][1])
-          : d <= ratio2ColorMap[8][0] ? this.color_scale(ratio2ColorMap[8][1])
-          : d <= ratio2ColorMap[9][0] ? this.color_scale(ratio2ColorMap[9][1])
-          : d <= ratio2ColorMap[10][0] ? this.color_scale(ratio2ColorMap[10][1])
-          : this.color_scale(1);
-      return {
-        fillColor: fColor.hex(),
-        weight: 2,
-        opacity: 1,
-        color: "white",
-        dashArray: "3",
-        fillOpacity: 0.7,
-      };
-    },
-
     getCurTimeStr() {
       var dateInstant = new Date();
       return new Date(dateInstant).toISOString();
@@ -187,35 +113,51 @@ export default {
 
     // 交互绘制回调
     drawCreatedBack(e) {
-       var geodesy = require('leaflet-geodesy')
+      
       // 绘制的图形图层对象
-      let drawLayer = e.layer;
+      var drawLayer = e.layer;
+      let features = drawLayer.toGeoJSON();
 
       // 添加到图层组
       this.drawLayerGroup.addLayer(drawLayer);
-      let tsId =  this.getCurTimeStr() + "_draw";
+      let tsIdDraw =  this.getCurTimeStr() + "_draw";
+      let tsIdInfo =  this.getCurTimeStr() + "_info";
       // 绘制监视图形 
-      var content = "<div id = " + tsId + " class = \"popup-window\"></div>";
+      var content = "<div id = '" + tsIdInfo + "' ></div>" + 
+       "<img src=\"dashline-altered.png\" alt=\"dashline\" style=\"width=  300px;\">" + 
+       "<div id = '" + tsIdDraw + "' class = \"popup-window\"></div>";
       drawLayer.bindPopup(content, {});
       let _this = this;
       drawLayer.on('popupopen', function(){
-        // let dateInstant = _this.map.timeDimension.getCurrentTime();
-        // var date = new Date(dateInstant).toISOString();
-        let area = (geodesy.area(drawLayer) / 1000000).toFixed()
+        let dom = document.getElementById(tsIdInfo);
+        let areaQuantity = geodesy.area(drawLayer) / 1000000;
+        let area = (geodesy.area(drawLayer) / 1000000).toFixed();
         let infoNode = document.createElement("div");
         let infoTimeNode = document.createElement("p");
         var startDate = new Date(_this.map.timeDimension.getCurrentTime());
         var date = startDate.toISOString().substring(0,10);
         infoTimeNode.innerHTML = "时间：<strong>"+date+"</strong>";
+        let chartPopupNode = document.getElementById(tsIdDraw);
+        // chartPopupNode.className = "echarts-for-all";
+        chartPopupNode.setAttribute('style',
+          'width: 270px; height: 270px'
+        );
+        // chartPopupNode.clientWidth = 400;
 
-        let chartPopupNode = document.createElement("p");
-        chartPopupNode.className = "echarts-for-all"
+        let infoAreaNode = document.createElement("p");
+        infoAreaNode.innerHTML = "面积：<strong>"+area + " km<sup>2</sup></strong>";
+
+        dom.appendChild(infoNode);
+        infoNode.appendChild(infoTimeNode);
+        infoNode.appendChild(infoAreaNode);
+
         let dateSeries = [];
         let landAreaSeries = [];
         let snowAreaSeries = [];
         let snowFractionalSeries = [];
         // 开始制作 E-Charts 
-        let estance = echarts.init(charPopupNode);
+        let chartNode = document.getElementById(chartPopupNode.id);
+        let estance = echarts.init(chartNode);
 
         // popup 图表格式
         let popupOption = {
@@ -225,35 +167,44 @@ export default {
           xAxis: {
             name: '时间',
             nameTextStyle: {
-            fontWeight: 600,
-            fontSize: 18
-          },
-          type: 'category',
-          boundaryGap: false,
-          data: dateSeries,	// 绑定实时数据数组
+              fontWeight: 600,
+              fontSize: 9
+            },
+            // axisLabel: {
+            //   show: true,
+            //   rotate: 45,
+            //   formatter: '{yy}-{MM}-{dd}',
+            // },
+            type: 'time',
+            splitLine: {
+              show: false,
+            },
+            boundaryGap: false,
+            // data: dateSeries,	// 绑定实时数据数组
           },
           yAxis: [{
-            name: '面积',
+            name: '面积(平方公里)',
             nameTextStyle: {
               fontWeight: 600,
-              fontSize: 18
+              fontSize: 9
             },
             type: 'value',
             scale: true,
             boundaryGap: ['15%', '15%'],
             axisLabel: {
               interval: 'auto',
-              formatter: '{value} %' // TODO: change
+              formatter: '{value}' // TODO: change
             }
           },
           {
             name: '积雪率',
             nameTextStyle: {
               fontWeight: 600,
-              fontSize: 18
+              fontSize: 9
             },
             type: 'value',
-            scale: true,
+            min: 0,
+            max: 100,
             boundaryGap: ['15%', '15%'],
             axisLabel: {
               interval: 'auto',
@@ -261,6 +212,10 @@ export default {
             }
           }
           ],
+          grid: {
+            right: '20%',
+            containLabel: true
+          },
           tooltip: {
             trigger: 'axis',
           },
@@ -270,7 +225,7 @@ export default {
               type:'line',
               smooth: false,
               yAxisIndex: 0,
-              data: snowAreaSeries,	// 绑定实时数据数组
+              data: landAreaSeries,	// 绑定实时数据数组
             },
             {
               name:'积雪面积',
@@ -286,22 +241,26 @@ export default {
               yAxisIndex: 1,
               data: snowFractionalSeries,	// 绑定实时数据数组
             }
-          ]
+          ],
+          legend: {
+            orient: 'horizontal',
+            x: 'left',
+            y: 'top',
+            data: ['陆地面积','积雪面积','积雪率']
+          }
         };
         estance.setOption(popupOption);
 
         setInterval(function(){
           estance.setOption({
-            xAxis: {
-              date: dateSeries
-            },
+            // xAxis: {
+            //   date: dateSeries
+            // },
             series:[{
               name:'陆地面积',
-              yAxisIndex: 0,
               data: landAreaSeries,
             },{
               name:'积雪面积',
-              yAxisIndex: 0,
               data: snowAreaSeries,
             },{
               name:'积雪率',
@@ -316,46 +275,244 @@ export default {
           startDate = new Date(time.time);
           date = startDate.toISOString().substring(0,10);
           let dateFormatted = date.replace(/-/g, '');
-          infoTimeNode.innerHTML = "时间：<strong>"+date+"</strong>";
-          
+          // let dateToAdd = startDate.toTimeString();
+          let postbody = JSON.stringify(features.geometry);
           // 从网络获取数据
-          dateSeries.push(dateFormatted);
+          // Access-Control-Allow-Origin: *
+          dateSeries.push(date);
+          // console.log(postbody);
+          let config = {
+            headers: {'Access-Control-Allow-Origin': '*'}
+          };
+          let token = new CancelToken((c) => { this.cancelAxiosRequest = c; });
+          axios.post("http://127.0.0.1:8889/api/" + dateFormatted, 
+            postbody,
+            {
+              cancelToken: token
+            }, config)
+            .then(({ data }) => {
+              snowFractionalSeries.push([date, data * 100]);
+              // snowFractionalSeries.push(data * 100);
+              infoTimeNode.innerHTML = "<p>时间：<strong>"+date+"</strong></p>" +
+              "<p>geojson: <strong>"+postbody+"</strong></p>"+
+              "<p>snow_ratio:<strong>"+ data.toFixed(2) * 100 + " %</strong></p>";
+              let snowArea = data * areaQuantity;
+              let landArea = (1 - data)   * areaQuantity;
+              snowAreaSeries.push([date, snowArea]);
+              // snowAreaSeries.push(snowArea);
+              landAreaSeries.push([date, landArea]);
+              // landAreaSeries.push(landArea);
+            })
+            .catch(() => console.log('API error'));          
 
-        });
-
-        let infoAreaNode = document.createElement("p");
-        infoAreaNode.innerHTML = "面积：<strong>"+area + " km<sup>2</sup></strong>";
-        // infoTimeNode.addEventListener()
-        // "时间："+date+"\n 面积：<strong>"+area + " km<sup>2</sup></strong>"
-        infoNode.appendChild(infoTimeNode);
-        infoNode.appendChild(infoAreaNode);
-        infoNode.appendChild(chartPopupNode);
-
-        let dom = document.getElementById(tsId);
-        dom.appendChild(infoNode);
+        }) ;
         // ev.popup.update();
         // api请求summary，在echarts绘制
         // console.log(time);
       });
 
-      //  "<div>日期：<strong>" + date + "</strong></div>"
+    },
 
-      // let startDate = new Date(this.map.timeDimension.);
-      // startDate.setUTCHours(0, 0, 0, 0);
-      // var startDateFormatted = startDate.toISOString().substring(0,10).replace(/-/g, '');
+    drawCNCityPopup(drawLayer, cityName) {
+      let tsIdDraw =  this.getCurTimeStr() + "_draw";
+      let tsIdInfo =  this.getCurTimeStr() + "_info";
+      // 绘制监视图形 
+      var content = "<div id = '" + tsIdInfo + "' ></div>" + 
+       "<img src=\"dashline-altered.png\" alt=\"dashline\" style=\"width=  300px;\">" + 
+       "<div id = '" + tsIdDraw + "' class = \"popup-window\"></div>";
+      drawLayer.bindPopup(content, {});
+      let _this = this;
+      drawLayer.on('popupopen', function(){
+        let dom = document.getElementById(tsIdInfo);
+        let areaQuantity = geodesy.area(drawLayer) / 1000000;
+        let area = (geodesy.area(drawLayer) / 1000000).toFixed();
+        let infoNode = document.createElement("div");
+        let infoTimeNode = document.createElement("p");
+        var startDate = new Date(_this.map.timeDimension.getCurrentTime());
+        var date = startDate.toISOString().substring(0,10);
+        infoTimeNode.innerHTML = "时间：<strong>"+date+"</strong>";
+        let chartPopupNode = document.getElementById(tsIdDraw);
+        // chartPopupNode.className = "echarts-for-all";
+        chartPopupNode.setAttribute('style',
+          'width: 270px; height: 270px'
+        );
+        // chartPopupNode.clientWidth = 400;
+
+        let infoAreaNode = document.createElement("p");
+        infoAreaNode.innerHTML = "面积：<strong>"+area + " km<sup>2</sup></strong>";
+
+        dom.appendChild(infoNode);
+        infoNode.appendChild(infoTimeNode);
+        infoNode.appendChild(infoAreaNode);
+
+        let dateSeries = [];
+        let landAreaSeries = [];
+        let snowAreaSeries = [];
+        let snowFractionalSeries = [];
+        // 开始制作 E-Charts 
+        let chartNode = document.getElementById(chartPopupNode.id);
+        let estance = echarts.init(chartNode);
+
+        // popup 图表格式
+        let popupOption = {
+          // legend: {
+          //   data: ['实际收益率', '大盘收益率'],
+          // },
+          xAxis: {
+            name: '时间',
+            nameTextStyle: {
+              fontWeight: 600,
+              fontSize: 9
+            },
+            // axisLabel: {
+            //   show: true,
+            //   rotate: 45,
+            //   formatter: '{yy}-{MM}-{dd}',
+            // },
+            type: 'time',
+            splitLine: {
+              show: false,
+            },
+            boundaryGap: false,
+            // data: dateSeries,	// 绑定实时数据数组
+          },
+          yAxis: [{
+            name: '面积(平方公里)',
+            nameTextStyle: {
+              fontWeight: 600,
+              fontSize: 9
+            },
+            type: 'value',
+            scale: true,
+            boundaryGap: ['15%', '15%'],
+            axisLabel: {
+              interval: 'auto',
+              formatter: '{value}' // TODO: change
+            }
+          },
+          {
+            name: '积雪率',
+            nameTextStyle: {
+              fontWeight: 600,
+              fontSize: 9
+            },
+            type: 'value',
+            min: 0,
+            max: 100,
+            boundaryGap: ['15%', '15%'],
+            axisLabel: {
+              interval: 'auto',
+              formatter: '{value} %'
+            }
+          }
+          ],
+          grid: {
+            right: '20%',
+            containLabel: true
+          },
+          tooltip: {
+            trigger: 'axis',
+          },
+          series: [
+            {
+              name:'陆地面积',
+              type:'line',
+              smooth: false,
+              yAxisIndex: 0,
+              data: landAreaSeries,	// 绑定实时数据数组
+            },
+            {
+              name:'积雪面积',
+              type:'line',
+              smooth: false,
+              yAxisIndex: 0,
+              data: snowAreaSeries,	// 绑定实时数据数组
+            },
+            {
+              name:'积雪率',
+              type:'line',
+              smooth: false,
+              yAxisIndex: 1,
+              data: snowFractionalSeries,	// 绑定实时数据数组
+            }
+          ],
+          legend: {
+            orient: 'horizontal',
+            x: 'left',
+            y: 'top',
+            data: ['陆地面积','积雪面积','积雪率']
+          }
+        };
+        estance.setOption(popupOption);
+
+        setInterval(function(){
+          estance.setOption({
+            // xAxis: {
+            //   date: dateSeries
+            // },
+            series:[{
+              name:'陆地面积',
+              data: landAreaSeries,
+            },{
+              name:'积雪面积',
+              data: snowAreaSeries,
+            },{
+              name:'积雪率',
+              yAxisIndex: 1,
+              date: snowFractionalSeries
+            }]
+          })
+        }, 3000);
+
+        // 注册时间回调 绘制 echarts
+        _this.map.timeDimension.on("timeload", function(time){
+          startDate = new Date(time.time);
+          date = startDate.toISOString().substring(0,10);
+          let dateFormatted = date.replace(/-/g, '');
+          // let dateToAdd = startDate.toTimeString();
+          let features = drawLayer.toGeoJSON();
+          let postbody = JSON.stringify(features.geometry);
+          // 从网络获取数据
+          // Access-Control-Allow-Origin: *
+          dateSeries.push(date);
+          console.log(postbody);
+          let config = {
+            headers: {'Access-Control-Allow-Origin': '*'}
+          };
+          let token = new CancelToken((c) => { this.cancelAxiosRequest = c; });
+          axios.post("http://127.0.0.1:8889/api/" + dateFormatted, 
+            postbody,
+            {
+              cancelToken: token
+            }, config)
+            .then(({ data }) => {
+              snowFractionalSeries.push([date, data * 100]);
+              // snowFractionalSeries.push(data * 100);
+              infoTimeNode.innerHTML = "<p>时间：<strong>"+date+"</strong></p>" +
+              "<p>城市: <strong>"+cityName+"</strong></p>"+
+              "<p>snow_ratio:<strong>"+ (data * 100).toFixed(4) + " %</strong></p>";
+              let snowArea = data * areaQuantity;
+              let landArea = (1 - data)   * areaQuantity;
+              snowAreaSeries.push([date, snowArea]);
+              // snowAreaSeries.push(snowArea);
+              landAreaSeries.push([date, landArea]);
+              // landAreaSeries.push(landArea);
+            })
+            .catch(() => console.log('API error'));          
+
+        });
+        // ev.popup.update();
+        // api请求summary，在echarts绘制
+        // console.log(time);
+      });
+
+
     },
 
     addLayerControl() {
 
       // let originUrl = "https://n5eil01u.ecs.nsidc.org/MOST/MOD10A1.061/2006.06.24/BROWSE.MOD10A1.A2006175.h00v08.061.2020265050446.1.jpg"
 
-      // this.chinaProvinceLayer = (
-      //     <GeoJSON
-      //       // pennsylvaniaBoundaries highAsiaBoundaries
-      //           data={ChinaProvince}
-      //           style={{ fill: false, color: '#FF5733' }}
-      //     />
-      // );
       let chinaProvince = require("../static/resource/ChinaProvince.json")
       let bounder = require("../static/resource/highAsiaBoundaries.json")
       let chinaCity = require("../static/resource/CN_city.geojson")
@@ -400,7 +557,7 @@ export default {
 
 
       let mbAttr = "Tibet-Qinghai Plateau CloudFree";
-      let tileApiUrl = "http://127.0.0.1:9000/tiles/{d}/{z}/{x}/{y}";
+      let tileApiUrl = "http://127.0.0.1:8889/tiles/{d}/{z}/{x}/{y}";
       this.overlayMap =  L.layerGroup();
       let SCALayer =  L.tileLayer(tileApiUrl, {attribution: mbAttr, maxZoom: 7});
       this.SCATimeLayer = L.timeDimension.layer.tileLayer.portus(SCALayer, {})
@@ -423,6 +580,7 @@ export default {
         mouseout: this.resetHighlight,
         // click: this.zoomToFeature,
       });
+      let area = (geodesy.area(layer) / 1000000).toFixed();
 
       layer.bindPopup(
         '<img style="height: 50px;" src=https://disease.sh/assets/img/flags/' +
@@ -433,7 +591,10 @@ export default {
         feature.properties.COUNTRY + "</strong></div>"+ 
         "<li>国家人口: " +
         feature.properties.population +
-        "</li>"
+        "</li>" + 
+        "<li>国家面积: " +
+        area +
+        " km<sup>2</sup></li>"
       );
     
     },
@@ -444,10 +605,13 @@ export default {
         mouseout: this.resetHighlight,
         // click: this.zoomToFeature,
       });
-      layer.bindPopup(
-        "<div><strong>" + feature.properties.NAME + "</strong></div>" 
-      + "<div><strong>" + L.GeometryUtil.geodesicArea(layer.getLatLngs()) + "</strong></div>"
-      );
+      // let area = (geodesy.area(layer) / 1000000).toFixed();
+
+      this.drawCNCityPopup(layer, feature.properties.NAME);
+      // layer.bindPopup(
+      //   "<div><strong>" + feature.properties.NAME + "</strong></div>" 
+      // + "<div><strong>" + area + " km<sup>2</sup></strong></div>"
+      // );
     },
 
     highlightFeature(e) {
@@ -487,7 +651,7 @@ export default {
   height: auto !important;
 }
 
-.popup-window {
+.popup-window .echarts-for-all{
   width: 220px;
   height: 220px;
 }

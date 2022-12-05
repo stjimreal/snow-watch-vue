@@ -1,12 +1,15 @@
 <!--
  * @Date: 2022-04-18 00:52:06
  * @LastEditors: LIULIJING
- * @LastEditTime: 2022-04-22 23:27:39
+ * @LastEditTime: 2022-04-29 16:51:04
 -->
 <template>
-  <div id="app">
+
+  <router-view></router-view>
+
+  <!-- <div id="app"> -->
     <!-- <Row style="height: 70px;"> -->
-      <AppHeader/>
+      <!-- <AppHeader/> -->
       <!-- <i-col span="5"> <Menu class="whiteword" @changeTab="setTab"/> </i-col> -->
     <!-- </Row> -->
 
@@ -18,28 +21,30 @@
       
     <!-- </Row> -->
 
-  </div>
+  <!-- </div> -->
+  
 </template>
 
 <script>
-import AppHeader from "@/components/AppHeader";
+// import AppHeader from "@/components/AppHeader";
 // import ViewWorld from "@/views/ViewWorld";
+// import AppView from "@/components/AppView";
 
 export default {
   name: 'App',
-    data() {
-    return{
-      fullHeight: document.documentElement.clientHeight,
-      currentTab:"tab1"
-    }
-  },
-  components: {
-    AppHeader,
-    // ViewWorld
-    // HeatIndex,
-    // Banner,
-    // Menu,
-  }
+  //   data() {
+  //   return{
+  //     fullHeight: document.documentElement.clientHeight,
+  //     currentTab:"tab1"
+  //   }
+  // },
+  // components: {
+  //   // AppHeader,
+  //   // ViewWorld
+  //   // HeatIndex,
+  //   // Banner,
+  //   // Menu,
+  // }
 }
 </script>
 

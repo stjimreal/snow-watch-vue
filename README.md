@@ -1,17 +1,22 @@
+<!--
+ * @Date: 2022-04-18 00:52:06
+ * @LastEditors: LIULIJING
+ * @LastEditTime: 2022-12-05 18:19:33
+-->
 # covid-19-dashboard
 
 [![Build Vue](https://github.com/zy6p/covid-19-dashboard/actions/workflows/npmbuild.yml/badge.svg)](https://github.com/zy6p/covid-19-dashboard/actions/workflows/npmbuild.yml)
 
 A vue3, echarts and leaflet covid-19 dashboard.  
 
-**GIS design and practice** project.     
-GIS设计与实践大作业 - 疫情地图
+## GIS 毕业设计系统实现前端代码——积雪动态监测，用Leaflet插件库TimeDimension实现了图层的动态时间轴
 
 ## ScreenShot
 
-![image](https://user-images.githubusercontent.com/55835958/116175806-99358100-a743-11eb-9499-85f4c333714d.png)
-![image](https://user-images.githubusercontent.com/55835958/116175863-b36f5f00-a743-11eb-89af-fae9236357cf.png)
-![image](https://user-images.githubusercontent.com/55835958/116175898-c2561180-a743-11eb-8218-c6133714aacd.png)
+![image](动态浏览.png)
+![image](动态浏览2.png)
+![image](在线监测3.png)
+![image](在线监测4.png)
 
 ## Roadmap
 

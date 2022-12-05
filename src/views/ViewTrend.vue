@@ -1,258 +1,77 @@
+<!--
+ * @Date: 2022-04-18 00:52:06
+ * @LastEditors: LIULIJING
+ * @LastEditTime: 2022-04-29 16:18:50
+-->
 <template>
-  <div class="block">
-    <span id="ChartShowTimeSpan" class="demonstration">时间轴: {{
-        ChartShowTime
-      }}</span>
-    <el-slider id="timeSlider" v-model=timeStamp2 :max=worldData.series.length-1
-               :show-tooltip="true"
-               :step="1"
-               @change="changeTimeSlider"
-               :show-stops="true"></el-slider>
-  </div>
-  <div id="sortChart" style="width: 100%;height:800px;"></div>
-  <div id="miniCHarts" style="width: 100%;height:13000px;"></div>
+  <Row class="HeatIndex" style="width:100%;" >
+      <i-col span="24" class="left" :style="'height:' + contentHeight + 'px;'">
+          <!-- <StaticMap v-if="chosenType === 'static'" style="height: 100%; width: 100%; position:relative; z: 0;"/> -->
+          <DynamicMap :currentIndex="currentTimeLineIndex" v-if="chosenScale === 'day'" style="height: 100%; width: 100%; position:relative; z-index: 0;"/>
+          <DynamicMapByWeek :currentIndex="currentWeekIndex" v-if="chosenScale === 'week'" style="height: 100%; width: 100%; position:relative; z-index: 0;"/>
+          <DynamicMapByMonth :currentIndex="currentMonthIndex" v-if="chosenScale === 'month'" style="height: 100%; width: 100%; position:relative; z-index: 0;"/>
+          <DynamicMapBySeason :currentIndex="currentSeasonIndex" v-if="chosenScale === 'season'" style="height: 100%; width: 100%; position:relative; z-index: 0;"/>
+          <StaticMap style="height: 100%; width: 100%; position:relative; z-index: 0;"/>
+          <visNumber style="position:absolute; right: 10px; top: 1%;z-index: 1;" :cardHeight="(ContentHeight*0.1)"/>
+          <visNCandSMI style="position:absolute; right: 10px; top: 12%;z-index: 1;" :chartHeight="(ContentHeight*0.4)"/>
+          <visSpecialHeatWord  style="position:absolute; right: 10px; bottom: 6.5%;z-index: 1;" :chartHeight="(ContentHeight*0.4)"/>
+          <visTopTenHeatProvince @changeIndex="changeIndex" v-if="chosenScale === 'day'" style="position:absolute; right: 10px; bottom: 6.5%;z-index: 1;" :chartHeight="(ContentHeight*0.4)"/>
+          <visTopTenHeatProvinceByWeek @changeIndex2="changeIndex2" v-if="chosenScale === 'week'" style="position:absolute; right: 10px; bottom: 6.5%;z-index: 1;" :chartHeight="(ContentHeight*0.4)"/>
+          <div style="display: flex; align-items: center">
+              <Select v-model="chosenScale" style="right: 100px; width: 100px; position:absolute; bottom: 0.5%;z-index: 1">
+                  <Option v-for="item in optionList" :value="item.value" :key="item.value">{{ item.label }}</Option>
+              </Select>
+          </div>
+      </i-col>               
+  </Row>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.min.css" />
+  <div id="map"></div>
+
 </template>
 
 <script>
-import * as echarts from "echarts/core";
-import 'element-plus/lib/theme-chalk/el-slider.css';
-import {
-  GridComponent,
-  LegendComponent,
-  TitleComponent,
-  ToolboxComponent,
-  TooltipComponent
-} from 'echarts/components';
-import {BarChart, LineChart} from 'echarts/charts';
-import {CanvasRenderer} from 'echarts/renderers';
+import 'element-plus/lib/theme-chalk/el-radio.css';
+import 'element-plus/lib/theme-chalk/el-radio-group.css';
+import 'leaflet-draw/dist/leaflet.draw.css';
+// import L from "leaflet";
+import map from "@/views/ViewWorld";
+import "@/m/fixleaflet";
+// import echarts from "./ViewTrend.vue";
+import "leaflet.chinatmsproviders";
+import "leaflet-draw";
+import "leaflet-geodesy";
+import "mytests-leaflet-timedimension-lljss";
+// import axios, {CancelToken} from "axios";
+// const echarts = require('echarts');
+// var geodesy = require('leaflet-geodesy');
 
-echarts.use(
-    [TitleComponent, ToolboxComponent, TooltipComponent, GridComponent, LegendComponent, BarChart, LineChart, CanvasRenderer]
-);
-let worldData = require("../static/resource/data.json");
-const countriesName = Object.keys(worldData.countries);
-
-let timeStamp = 0;
-let dailyData = [];
 
 export default {
   name: "ViewTrend",
   data() {
     return {
-      myChart: null,
-      worldData,
-      timeStamp2: timeStamp,
-      ChartShowTime: worldData.series[timeStamp],
-      countriesName: '',
-    }
+      map: map,
+      // baseLayers: null,
+      // globalVaccineLayer: null,
+      // globalCovidLayer: null,
+      // cancelAxiosRequest: null
+    };
+  },
+  components: {
+    // AppColorGrad,
+    // AppHeaderCard,
   },
   mounted() {
-    this.initCharts();
-    this.initMiniCharts();
+    // this.initBaseMap();
+    // this.addLayerControl();
+    // this.addGlobalCountryLayer();
   },
+
   methods: {
-    initCharts: function () {
-      let chartDom = document.getElementById('sortChart');
-      this.myChart = echarts.init(chartDom, 'dark');
-      let tempChart = this.myChart;
 
-      let typeOfData = 'Cases';
-
-      let chartOption = {
-        title: {
-          text: 'Global Covid-19 ' + typeOfData
-        },
-        xAxis: {
-          max: 'dataMax',
-        },
-        yAxis: {
-          type: 'category',
-          data: countriesName,
-          inverse: true,
-          animationDuration: 300,
-          animationDurationUpdate: 300,
-          max: 19, // only the largest 3 bars will be displayed
-        },
-        series: [{
-          realtimeSort: true,
-          name: '确诊数量',
-          type: 'bar',
-          data: dailyData,
-          label: {
-            show: true,
-            position: 'right',
-            valueAnimation: true
-          }
-        }],
-        legend: {
-          show: true
-        },
-        animationDuration: 0,
-        animationDurationUpdate: 500,
-        animationEasing: "linear",
-        animationEasingUpdate: 'linear',
-      };
-      let that = this;
-
-      setTimeout(function () {
-        that.chartRun(tempChart, chartOption);
-      }, 0);
-
-      setInterval(function () {
-        that.chartRun(tempChart, chartOption);
-      }, 500);
-    },
-
-    initMiniCharts() {
-      let chartDom = document.getElementById('miniCHarts');
-      let miniCharts = echarts.init(chartDom, 'dark');
-
-      let grids = [];
-      let xAxes = [];
-      let yAxes = [];
-      let series = [];
-      let titles = [];
-      let count = 0;
-
-      function grid_template(count, item) {
-        return {
-          show: true,
-          borderWidth: 0,
-          shadowColor: 'rgba(0, 0, 0, 0.3)',
-          shadowBlur: 2,
-          left: (33.3 * item + 3.7) + '%',
-          top: (Math.floor(count / 3) * 60 + 5) + 'px',
-          width: '26%',
-          height: '60px'
-        }
-      }
-
-      function xAxes_template(count) {
-        return {
-          type: 'value',
-          show: false,
-          min: 0,
-          max: 1,
-          gridIndex: count
-        }
-      }
-
-      function yAxes_template(name, count) {
-        return {
-          type: 'value',
-          show: false,
-          min: 0,
-          // max: 0.001 * worldData.countries[name].population,
-          max: 1,
-          gridIndex: count
-        }
-      }
-
-      let showItem = ['cases', 'deaths', 'recovered'];
-      let showItemScale = [' (max: 10%)', ' (max: 0.4%)', ' (max: 10%)'];
-
-      function series_template(name, item, data, count) {
-        return {
-          name: name + ' ' + showItem[item] + showItemScale[item],
-          type: 'line',
-          xAxisIndex: count,
-          yAxisIndex: count,
-          data: data[item],
-          showSymbol: false,
-          areaStyle: {},
-          emphasis: {
-            focus: 'series'
-          },
-          animationEasing: name + ' ' + showItem[item] + showItemScale[item],
-          animationDuration: 1000
-        }
-      }
-
-      function titles_template(name, item) {
-        return {
-          textAlign: 'center',
-          text: name + ' ' + showItem[item] + showItemScale[item],
-          textStyle: {
-            fontSize: 12,
-            fontWeight: 'normal'
-          },
-          top: (Math.floor(count / 3) * 60 + 30) + 'px',
-          left: ((33 * item) + 16.5) + '%'
-        }
-      }
-
-      const N_POINT = worldData.series.length;
-
-      // const allCountriesName = Object.keys(worldData.countries).sort();
-      Object.keys(worldData.countries).sort().forEach(function (country) {
-        let c_data = [];
-        c_data.push(worldData.countries[country].cases.map(function (v, i) {
-          return [i / N_POINT, v / worldData.countries[country].population * 10]
-        }));
-        c_data.push(worldData.countries[country].deaths.map(function (v, i) {
-          return [i / N_POINT, v / worldData.countries[country].population * 250]
-        }));
-        c_data.push(worldData.countries[country].recovered.map(function (v, i) {
-          return [i / N_POINT, v / worldData.countries[country].population * 10]
-        }));
-
-        for (let i = 0; i < 3; i++) {
-          grids.push(grid_template(count, i));
-          xAxes.push(xAxes_template(count));
-          yAxes.push(yAxes_template(country, count));
-          series.push(series_template(country, i, c_data, count));
-          titles.push(titles_template(country, i));
-          count++;
-        }
-      });
-
-      let option = {
-        title: titles.concat([{
-          text: 'Covid-19 Statistic',
-          top: 'bottom',
-          left: 'center'
-        }]),
-        grid: grids,
-        xAxis: xAxes,
-        yAxis: yAxes,
-        series: series,
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            // type: 'cross',
-            label: {
-              backgroundColor: '#6a7985'
-            }
-          }
-        },
-        toolbox: {
-          feature: {
-            saveAsImage: {},
-            restore: {},
-          }
-        }
-      };
-
-      option && miniCharts.setOption(option);
-    },
-
-    chartRun(chart, option) {
-      for (let i = 0; i < countriesName.length; i++) {
-        dailyData[i] = worldData.countries[countriesName[i]].cases[timeStamp];
-      }
-      timeStamp = timeStamp < worldData.series.length ? (timeStamp + 1) : 0;
-      this.timeStamp2 = timeStamp;
-      this.ChartShowTime = worldData.series[timeStamp];
-      chart.setOption(option);
-    },
-
-    changeTimeSlider(event) {
-      timeStamp = event;
-      this.ChartShowTime = worldData.series[timeStamp];
-      console.log(this.ChartShowTime)
-    },
   }
 }
+
 </script>
 
 <style scoped>
